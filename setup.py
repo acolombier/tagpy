@@ -30,8 +30,8 @@ from distutils.core import Extension
 
 def main():
 
-    INCLUDE_DIRS = ""  # conf["TAGLIB_INC_DIR"] + conf["BOOST_INC_DIR"]
-    LIBRARY_DIRS = ""  # conf["TAGLIB_LIB_DIR"] + conf["BOOST_LIB_DIR"]
+    INCLUDE_DIRS = ["/usr/local/include/"]  # conf["TAGLIB_INC_DIR"] + conf["BOOST_INC_DIR"]
+    LIBRARY_DIRS = ["/usr/local/lib"]  # conf["TAGLIB_LIB_DIR"] + conf["BOOST_LIB_DIR"]
 
     boost_name = None
 

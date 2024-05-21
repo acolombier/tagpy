@@ -32,6 +32,10 @@
 #include <taglib/id3v1tag.h>
 #include <taglib/id3v2tag.h>
 #include <taglib/wavfile.h>
+#include <taglib/mp4file.h>
+#include <taglib/mp4tag.h>
+#include <taglib/mp4coverart.h>
+#include <taglib/mp4item.h>
 
 #include "common.hpp"
 
@@ -51,7 +55,7 @@ namespace
   // Ogg
   // -------------------------------------------------------------
   MF_OL(addField, 2, 3);
-  MF_OL(removeField, 1, 2);
+  MF_OL(removeFields, 1, 2);
   MF_OL(render, 0, 1);
 
   // -------------------------------------------------------------
@@ -62,12 +66,23 @@ namespace
   // -------------------------------------------------------------
   // MPC
   // -------------------------------------------------------------
-  MF_OL(remove, 0, 1);
+  //MF_OL(remove, 0, 1);
   //MF_OL(ID3v1Tag, 0, 1);
   MF_OL(APETag, 0, 1);
 
   // WAV
   MF_OL(strip, 0, 1);
+
+  // MP4
+  TagLib::MP4::CoverArtList mp4_Tag_GetCovers(TagLib::MP4::Tag &t) {
+    if (!t.contains("covr")) {
+      return {};
+    }
+    return t.item("covr").toCoverArtList();
+  }
+  void mp4_Tag_SetCovers(TagLib::MP4::Tag &t, TagLib::MP4::CoverArtList& l) {
+    return t.setItem("covr", l);
+  }
 }
 
 
@@ -90,8 +105,8 @@ void exposeRest()
            return_internal_reference<>())
       .DEF_SIMPLE_METHOD(vendorID)
       .DEF_OVERLOADED_METHOD(addField, void (cl::*)(const String &, const String &, bool))
-      .DEF_OVERLOADED_METHOD(removeField, void (cl::*)(const String &, const String &))
-      .DEF_OVERLOADED_METHOD(removeField, void (cl::*)(const String &, const String &))
+      .DEF_OVERLOADED_METHOD(removeFields, void (cl::*)(const String &, const String &))
+      .DEF_OVERLOADED_METHOD(removeFields, void (cl::*)(const String &, const String &))
       .DEF_OVERLOADED_METHOD(render, ByteVector (cl::*)(bool) const)
       ;
   }
@@ -159,10 +174,10 @@ void exposeRest()
       .def(init<const String &, const StringList &>())
       .def(init<const cl &>())
       .DEF_SIMPLE_METHOD(key)
-      .DEF_SIMPLE_METHOD(value)
+      .DEF_SIMPLE_METHOD(binaryData)
       .DEF_SIMPLE_METHOD(size)
       .DEF_SIMPLE_METHOD(toString)
-      .DEF_SIMPLE_METHOD(toStringList)
+      .DEF_SIMPLE_METHOD(values)
       .DEF_SIMPLE_METHOD(render)
       .DEF_SIMPLE_METHOD(parse)
       .DEF_SIMPLE_METHOD(setReadOnly)
@@ -207,9 +222,6 @@ void exposeRest()
            (Ogg::XiphComment *(FLAC::File::*)(bool))
            &FLAC::File::xiphComment,
            xiphComment_overloads()[return_internal_reference<>()])
-      .DEF_SIMPLE_METHOD(setID3v2FrameFactory)
-      .DEF_SIMPLE_METHOD(streamInfoData)
-      .DEF_SIMPLE_METHOD(streamLength)
       ;
   }
 
@@ -238,8 +250,8 @@ void exposeRest()
            APETag_overloads()[return_internal_reference<>()])
       .def("remove",
            (void (cl::*)(int))
-           &cl::remove,
-           remove_overloads())
+           &cl::strip,
+           strip_overloads())
       ;
   }
 
@@ -267,6 +279,66 @@ void exposeRest()
       #if (TAGPY_TAGLIB_HEX_VERSION >= 0x11100)
       .DEF_OVERLOADED_METHOD(strip, void (cl::*)(TagLib::RIFF::WAV::File::TagTypes) const)
       #endif
+      ;
+  }
+
+  /// MP4
+
+  enum_<TagLib::MP4::File::TagTypes>("mp4_TagTypes")
+    .value("NoTags", TagLib::MP4::File::NoTags)
+    .value("MP4", TagLib::MP4::File::MP4)
+    .value("AllTags", TagLib::MP4::File::AllTags)
+    ;
+
+  {
+    typedef TagLib::MP4::File cl;
+    class_<cl, bases<File>, boost::noncopyable>
+      ("mp4_File", init<const char *, optional<bool, AudioProperties::ReadStyle> >())
+      .def("tag",
+           (MP4::Tag *(cl::*)() const)
+           &cl::tag,
+           return_internal_reference<>())
+      // #if (TAGPY_TAGLIB_HEX_VERSION >= 0x11100)
+      // .DEF_OVERLOADED_METHOD(strip, void (cl::*)(TagLib::MP4::File::TagTypes) const)
+      // #endif
+      ;
+  }
+
+  enum_<TagLib::MP4::CoverArt::Format>("mp4_CoverArtFormats")
+    .value("JPEG", TagLib::MP4::CoverArt::JPEG)
+    .value("PNG", TagLib::MP4::CoverArt::PNG)
+    .value("BMP", TagLib::MP4::CoverArt::BMP)
+    .value("GIF", TagLib::MP4::CoverArt::GIF)
+    .value("Unknown", TagLib::MP4::CoverArt::Unknown)
+    ;
+
+  {
+    typedef TagLib::MP4::CoverArt cl;
+    class_<cl>
+      ("mp4_CoverArt", init<TagLib::MP4::CoverArt::Format, const ByteVector &>())
+      .DEF_SIMPLE_METHOD(format)
+      .DEF_SIMPLE_METHOD(data)
+      ;
+
+  }
+
+  exposeList<TagLib::MP4::CoverArt>("mp4_CoverArtList");
+
+  {
+    typedef TagLib::MP4::Tag cl;
+    class_<TagWrap<cl>, boost::noncopyable>("Tag", no_init)
+      .add_property("title", &cl::title, &cl::setTitle)
+      .add_property("artist", &cl::artist, &cl::setArtist)
+      .add_property("album", &cl::album, &cl::setAlbum)
+      .add_property("comment", &cl::comment, &cl::setComment)
+      .add_property("genre", &cl::genre, &cl::setGenre)
+      .add_property("year", &cl::year, &cl::setYear)
+      .add_property("track", &cl::track, &cl::setTrack)
+      .add_property("covers", &mp4_Tag_GetCovers, &mp4_Tag_SetCovers)
+
+      .DEF_VIRTUAL_METHOD(isEmpty)
+      .DEF_SIMPLE_METHOD(duplicate)
+      .staticmethod("duplicate")
       ;
   }
 

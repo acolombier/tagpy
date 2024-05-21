@@ -71,6 +71,7 @@ class FileRef(object):
         import tagpy.ogg.vorbis
         import tagpy.ogg.flac
         import tagpy.mpeg
+        import tagpy.mp4
         import tagpy.flac
         import tagpy.mpc
         import tagpy.wav
@@ -80,6 +81,8 @@ class FileRef(object):
         return {
             "ogg": tagpy.ogg.vorbis,
             "mp3": tagpy.mpeg,
+            "mp4": tagpy.mp4,
+            "m4a": tagpy.mp4,
             "oga": tagpy.ogg.flac,
             "flac": tagpy.flac,
             "mpc": tagpy.mpc,
